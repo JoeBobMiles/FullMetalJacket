@@ -11,6 +11,9 @@
 #define UNICODE
 #include <windows.h>
 
+// Include 3rd party headers.
+#include <vulkan/vulkan.h>
+
 /** Window's entry point into our game. */
 int WINAPI wWinMain(HINSTANCE Instance,     // Current application instance.
                     HINSTANCE PrevInstance, // Previous instance (unused).

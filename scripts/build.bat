@@ -10,5 +10,5 @@ rem
 
 if not exist build/ ( md build )
 pushd build
-clang-cl /Zi ..\src\win32.cpp /o fullmetaljacket.exe
+clang-cl /Zi ..\src\win32.cpp /I ..\include /o fullmetaljacket.exe
 popd
