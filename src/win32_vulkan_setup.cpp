@@ -131,9 +131,9 @@ void win32_LoadVulkan()
     else
     {
 #ifdef DEBUG
-        Assert(false, "Could not find vulkan-1.dll!\n");
+        Assert(false, "Could not find vulkan-1.dll.\n");
 #else
-        Abort("Could not find vulkan-1.dll!\n");
+        Abort("Could not load Vulkan!\n");
 #endif
     }
 }
