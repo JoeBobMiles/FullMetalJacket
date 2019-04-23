@@ -8,11 +8,8 @@ rem
 rem This is my personal shell setup script.
 rem
 
-echo Creating new drive letter P:
-if exist P: ( subst P: /D )
-subst P: .
-
 echo Adding scripts directory to path
-path %PATH%;P:\scripts\
+rem NOTE[joe] %~dp0 grabs the directory where this script lives.
+path %PATH%;%~dp0
 
 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64

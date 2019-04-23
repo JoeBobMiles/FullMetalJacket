@@ -8,7 +8,18 @@ rem
 rem This is the build script for Windows, using clang-cl.
 rem
 
-if not exist build/ ( md build )
+cls
+
+if %1.==release. (
+    set debug=""
+) else (
+    set debug="/D DEBUG"
+)
+
+if not exist build\ (
+    md build\
+)
+
 pushd build
-clang-cl /Zi ..\src\win32.cpp /I ..\include /o fullmetaljacket.exe
+clang-cl %debug% /Zi ..\src\win32_main.cpp user32.lib /I ..\include /o fullmetaljacket.exe
 popd

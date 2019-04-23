@@ -15,10 +15,13 @@ prerequisites for to build this project are:
 
  -  The LLVM clang compiler.
  -  Visual Studio (any version).
- -  Knowledge of how to use a commandline.
+ -  Vulkan SDK (minimum version 1.0).
 
 To build the project, make sure you have `clang-cl` in your path, as well as
 the Visual Studio dev tools (you will need to track down and run your
 `vcvarsall.bat` to do this). Once you have confirmed that both of those are
 in your system path, you can run `build.bat` in the scripts folder. It will
-produce an executable (with debug information) in the build directory.
+produce an debug build of the game (with debug information) in the build
+directory.
+
+To build a release version of the game, run `build.bat release`.
