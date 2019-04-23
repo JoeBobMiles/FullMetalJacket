@@ -23,8 +23,8 @@
 // TODO[joe] Find a place for this to live that isn't here.
 // Could put this in a generic "platform" header.
 typedef struct {
-    int            Width;
-    int            Height;
+    unsigned int   Width;
+    unsigned int   Height;
     VkInstance     Instance;
     VkDevice       Device;
     VkQueue        PresentQueue;
@@ -32,10 +32,13 @@ typedef struct {
     VkCommandBuffer DrawCommandBuffer;
     VkSwapchainKHR  SwapChain;
     VkImage*        PresentImages;
-    VkDebugReportCallbackEXT   Callback;
-    VkSurfaceKHR               Surface;
-    VkPhysicalDevice           PhysicalDevice;
-    VkPhysicalDeviceProperties PhysicalDeviceProperties;
+    VkImage         DepthImage;
+    VkImageView     DepthImageView;
+    VkDebugReportCallbackEXT         Callback;
+    VkSurfaceKHR                     Surface;
+    VkPhysicalDevice                 PhysicalDevice;
+    VkPhysicalDeviceProperties       PhysicalDeviceProperties;
+    VkPhysicalDeviceMemoryProperties MemoryProperties;
     unsigned int               PresentQueueIndex;
 } vulkan_context;
 
@@ -56,6 +59,8 @@ void GameRender(vulkan_context Context)
     vkAcquireNextImageKHR(Context.Device,
                           Context.SwapChain,
                           UINT64_MAX,
+                          // FIXME[joe] Can't have null semaphore _and_ fence.
+                          // One of these must be a vaild handle.
                           VK_NULL_HANDLE,
                           VK_NULL_HANDLE,
                           &NextImageIndex);

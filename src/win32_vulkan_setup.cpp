@@ -31,6 +31,11 @@ static PFN_vkCreateImageView vkCreateImageView;
 static PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
 static PFN_vkCreateSemaphore vkCreateSemaphore;
 static PFN_vkDestroySemaphore vkDestroySemaphore;
+static PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
+static PFN_vkCreateImage vkCreateImage;
+static PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
+static PFN_vkAllocateMemory vkAllocateMemory;
+static PFN_vkBindImageMemory vkBindImageMemory;
 
 // Vulkan surface extension functions.
 static PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
@@ -118,7 +123,6 @@ void win32_LoadVulkan()
         vkCreateImageView = (PFN_vkCreateImageView)
             GetProcAddress(Vulkan, "vkCreateImageView");
 
-
         vkCmdPipelineBarrier = (PFN_vkCmdPipelineBarrier)
             GetProcAddress(Vulkan, "vkCmdPipelineBarrier");
 
@@ -127,6 +131,23 @@ void win32_LoadVulkan()
 
         vkDestroySemaphore = (PFN_vkDestroySemaphore)
             GetProcAddress(Vulkan, "vkDestroySemaphore");
+
+        vkGetPhysicalDeviceMemoryProperties =
+            (PFN_vkGetPhysicalDeviceMemoryProperties)
+            GetProcAddress(Vulkan, "vkGetPhysicalDeviceMemoryProperties");
+
+        vkCreateImage = (PFN_vkCreateImage) GetProcAddress(Vulkan,
+                                                           "vkCreateImage");
+
+        vkGetImageMemoryRequirements =
+            (PFN_vkGetImageMemoryRequirements)
+            GetProcAddress(Vulkan, "vkGetImageMemoryRequirements");
+
+        vkAllocateMemory = (PFN_vkAllocateMemory)
+            GetProcAddress(Vulkan, "vkAllocateMemory");
+
+        vkBindImageMemory = (PFN_vkBindImageMemory)
+            GetProcAddress(Vulkan, "vkBindImageMemory");
     }
     else
     {
@@ -424,6 +445,11 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
     // TODO[joe] This is a big issue. Should we abort in release mode?
     Assert(Context.PhysicalDevice, "No physical device detected.\n");
 
+    /** Get physical device memory. */
+
+    vkGetPhysicalDeviceMemoryProperties(Context.PhysicalDevice,
+                                        &Context.MemoryProperties);
+
     /** Create logical display device. */
 
     VkDeviceQueueCreateInfo QueueCreateInfo = {};
@@ -641,7 +667,7 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
 
     Assert(Result == VK_SUCCESS, "Failed to allocate draw command buffer.\n");
 
-    /** Create and initialize image handles. */
+    /** Create and initialize color image handles. */
 
     unsigned int ImageCount = 0;
     vkGetSwapchainImagesKHR(Context.Device,
@@ -698,7 +724,7 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
 
         VkSemaphoreCreateInfo SemaphoreCreateInfo = {};
         SemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        
+
         vkCreateSemaphore(Context.Device,
                           &SemaphoreCreateInfo,
                           0,
@@ -800,6 +826,154 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
 
         Assert(Result == VK_SUCCESS, "Could not create image view.\n");
     }
+
+    /** Create a depth image buffer. (The previously created image is a color
+     * image buffer.) */
+
+    VkImageCreateInfo ImageCreateInfo = {};
+    ImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    ImageCreateInfo.format = VK_FORMAT_D16_UNORM;
+    // TODO[joe] Make this more explicit.
+    ImageCreateInfo.extent = { Context.Width, Context.Height, 1 };
+    ImageCreateInfo.mipLevels = 1;
+    ImageCreateInfo.arrayLayers = 1;
+    ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ImageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    ImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    Result = vkCreateImage(Context.Device,
+                           &ImageCreateInfo,
+                           NULL,
+                           &Context.DepthImage);
+
+    Assert(Result == VK_SUCCESS, "Failed to create depth image.\n");
+
+    /** Allocate and bind memory on physical device to the created depth
+     * buffer. */
+
+    VkMemoryRequirements MemoryRequirements = {};
+    vkGetImageMemoryRequirements(Context.Device,
+                                 Context.DepthImage,
+                                 &MemoryRequirements);
+
+    VkMemoryAllocateInfo ImageAllocateInfo = {};
+    ImageAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    ImageAllocateInfo.allocationSize = MemoryRequirements.size;
+
+    unsigned int MemoryTypeBits = MemoryRequirements.memoryTypeBits;
+    VkMemoryPropertyFlags DesiredMemoryFlags =
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    for (unsigned int i = 0; i < sizeof(MemoryTypeBits); i++)
+    {
+        VkMemoryType MemoryType = Context.MemoryProperties.memoryTypes[i];
+
+        // NOTE[joe] If the least significant bit is set, proceed.
+        if (MemoryTypeBits & 1) {
+            if ((MemoryType.propertyFlags & DesiredMemoryFlags) ==
+                DesiredMemoryFlags)
+            {
+                ImageAllocateInfo.memoryTypeIndex = 1;
+                break;
+            }
+        }
+
+        MemoryTypeBits = MemoryTypeBits >> 1;
+    }
+
+    VkDeviceMemory ImageMemory = {};
+    Result = vkAllocateMemory(Context.Device,
+                              &ImageAllocateInfo,
+                              0,
+                              &ImageMemory);
+
+    Assert(Result == VK_SUCCESS,
+           "Failed to allocate device memory for depth image.\n");
+
+    Result = vkBindImageMemory(Context.Device,
+                               Context.DepthImage,
+                               ImageMemory,
+                               0);
+
+    Assert(Result == VK_SUCCESS,
+           "Failed to bind image memory for depth image.\n");
+
+    BeginInfo = {};
+    BeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    BeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(Context.SetupCommandBuffer,
+                         &BeginInfo);
+
+    VkImageMemoryBarrier LayoutTransitionBarrier = {};
+    LayoutTransitionBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    LayoutTransitionBarrier.srcAccessMask = 0;
+    LayoutTransitionBarrier.dstAccessMask =
+        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    LayoutTransitionBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    LayoutTransitionBarrier.newLayout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    LayoutTransitionBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    LayoutTransitionBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    LayoutTransitionBarrier.image = Context.DepthImage;
+    LayoutTransitionBarrier.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_DEPTH_BIT;
+    LayoutTransitionBarrier.subresourceRange.levelCount = 1;
+    LayoutTransitionBarrier.subresourceRange.layerCount = 1;
+
+    vkCmdPipelineBarrier(Context.SetupCommandBuffer,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                         0, 0, 0, 0, 0, 1,
+                         &LayoutTransitionBarrier);
+
+    vkEndCommandBuffer(Context.SetupCommandBuffer);
+
+    VkPipelineStageFlags WaitStageMask[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    };
+
+    VkSubmitInfo SubmitInfo = {};
+    SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    SubmitInfo.pWaitDstStageMask = WaitStageMask;
+    SubmitInfo.commandBufferCount = 1;
+    SubmitInfo.pCommandBuffers = &Context.SetupCommandBuffer;
+
+    Result = vkQueueSubmit(Context.PresentQueue, 1, &SubmitInfo, SubmitFence);
+
+    // TODO[joe] Do something with Result? Abort?
+
+    vkWaitForFences(Context.Device, 1, &SubmitFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(Context.Device, 1, &SubmitFence);
+    vkResetCommandBuffer(Context.SetupCommandBuffer, 0);
+
+    /** Create the image view for our depth buffer. */
+
+    VkImageViewCreateInfo ImageViewCreateInfo = {};
+    ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    ImageViewCreateInfo.image = Context.DepthImage;
+    ImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    ImageViewCreateInfo.format = ImageCreateInfo.format;
+    ImageViewCreateInfo.components = {
+        VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY,
+        VK_COMPONENT_SWIZZLE_IDENTITY
+    };
+    ImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    ImageViewCreateInfo.subresourceRange.levelCount = 1;
+    ImageViewCreateInfo.subresourceRange.layerCount = 1;
+
+    Result = vkCreateImageView(Context.Device,
+                               &ImageViewCreateInfo,
+                               0,
+                               &Context.DepthImageView);
+
+    Assert(Result == VK_SUCCESS, "Failed to create depth image view.\n");
 
     return Context;
 }
