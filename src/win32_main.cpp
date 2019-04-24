@@ -15,38 +15,11 @@
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
-// Include platform header.
+// Include engine headers.
 #include "platform.h"
+#include "render.h"
 
-/* BEGIN struct declarations. */
-
-// TODO[joe] Find a place for this to live that isn't here.
-// Could put this in a generic "platform" header.
-typedef struct {
-    unsigned int    Width;
-    unsigned int    Height;
-    VkInstance      Instance;
-    VkDevice        Device;
-    VkQueue         PresentQueue;
-    VkCommandBuffer SetupCommandBuffer;
-    VkCommandBuffer DrawCommandBuffer;
-    VkSwapchainKHR  SwapChain;
-    VkImage*        PresentImages;
-    VkImage         DepthImage;
-    VkImageView     DepthImageView;
-    VkRenderPass    RenderPass;
-    VkFramebuffer*  Framebuffers;
-    VkDebugReportCallbackEXT         Callback;
-    VkSurfaceKHR                     Surface;
-    VkPhysicalDevice                 PhysicalDevice;
-    VkPhysicalDeviceProperties       PhysicalDeviceProperties;
-    VkPhysicalDeviceMemoryProperties MemoryProperties;
-    unsigned int                     PresentQueueIndex;
-} vulkan_context;
-
-/* END struct declarations. */
-
-// Include other parts of the application.
+// Include Win32 specific vulkan setup.
 #include "win32_vulkan_setup.cpp"
 
 // NOTE[joe] Temporary globals

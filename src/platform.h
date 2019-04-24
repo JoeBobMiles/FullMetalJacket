@@ -1,3 +1,13 @@
+/**
+ * @file platform.h
+ * @author Joseph Miles <josephmiles2015@gmail.com>
+ * @date 2019-04-23
+ * 
+ * This file contains declarations for all functions that require somekind of
+ * platform specific implementation, but also need to be used by the rest of
+ * the program.
+ */
+
 #ifndef _PLATFORM_H_
 #define _PLATFORM_H_
 

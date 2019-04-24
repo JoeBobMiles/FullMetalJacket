@@ -8,6 +8,9 @@
  * interaction code from our Vulkan setup code.
  */
 
+#include "platform.h"
+#include "render.h"
+
 // Declare handles to Vulkan functions that we will load later.
 static PFN_vkCreateInstance vkCreateInstance;
 static PFN_vkEnumerateInstanceLayerProperties vkEnumerateInstanceLayerProperties;
@@ -37,6 +40,11 @@ static PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
 static PFN_vkAllocateMemory vkAllocateMemory;
 static PFN_vkBindImageMemory vkBindImageMemory;
 static PFN_vkCreateRenderPass vkCreateRenderPass;
+static PFN_vkCreateBuffer vkCreateBuffer;
+static PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
+static PFN_vkMapMemory vkMapMemory;
+static PFN_vkUnmapMemory vkUnmapMemory;
+static PFN_vkBindBufferMemory vkBindBufferMemory;
 
 // Vulkan surface extension functions.
 static PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
@@ -152,6 +160,20 @@ void win32_LoadVulkan()
 
         vkCreateRenderPass = (PFN_vkCreateRenderPass)
             GetProcAddress(Vulkan, "vkCreateRenderPass");
+
+        vkCreateBuffer = (PFN_vkCreateBuffer)
+            GetProcAddress(Vulkan, "vkCreateBuffer");
+
+        vkGetBufferMemoryRequirements = (PFN_vkGetBufferMemoryRequirements)
+            GetProcAddress(Vulkan, "vkGetBufferMemoryRequirements");
+
+        vkMapMemory = (PFN_vkMapMemory) GetProcAddress(Vulkan, "vkMapMemory");
+
+        vkUnmapMemory = (PFN_vkUnmapMemory) GetProcAddress(Vulkan,
+                                                           "vkUnmapMemory");
+
+        vkBindBufferMemory = (PFN_vkBindBufferMemory)
+            GetProcAddress(Vulkan, "vkBindBufferMemory");
     }
     else
     {
@@ -1054,6 +1076,95 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
     Context.Framebuffers = Framebuffers;
 
     Assert(Result == VK_SUCCESS, "Failed to create framebuffer.\n");
+
+    /** Create a vertex buffer for a triangle mesh. */
+
+    VkBufferCreateInfo VertexInputBufferInfo = {};
+    VertexInputBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    // NOTE[joe] Allocate enough memory for a triangle.
+    VertexInputBufferInfo.size = sizeof(vertex) * 3;
+    VertexInputBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    VertexInputBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    Result = vkCreateBuffer(Context.Device,
+                            &VertexInputBufferInfo,
+                            0,
+                            &Context.VertexInputBuffer);
+
+    Assert(Result == VK_SUCCESS, "Failed to create vertex input buffer.\n");
+
+    /** Allocate memory on the rendering device for our vertex buffer.
+     * TODO[joe] Make this a function? We've used the same code twice now...
+     * TODO[joe] Do we want be allocating a vertex buffer for our context?
+     * Or do we want to be doing it for every model individually? */
+
+    VkMemoryRequirements VertexBufferMemoryRequirements = {};
+    vkGetBufferMemoryRequirements(Context.Device,
+                                  Context.VertexInputBuffer,
+                                  &VertexBufferMemoryRequirements);
+
+    VkMemoryAllocateInfo BufferAllocateInfo = {};
+    BufferAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    BufferAllocateInfo.allocationSize = VertexBufferMemoryRequirements.size;
+
+    unsigned int VertexMemoryTypeBits =
+        VertexBufferMemoryRequirements.memoryTypeBits;
+    VkMemoryPropertyFlags VertexDesiredMemoryFlags =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+    // NOTE[joe] 32 is the size of VertexMemoryTypeBits, whose bits we index.
+    for (unsigned int i = 0; i < 32; ++i)
+    {
+        VkMemoryType MemoryType = Context.MemoryProperties.memoryTypes[i];
+
+        if (VertexMemoryTypeBits & 1)
+        {
+            if ((MemoryType.propertyFlags & VertexDesiredMemoryFlags) ==
+                VertexDesiredMemoryFlags)
+            {
+                BufferAllocateInfo.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        VertexMemoryTypeBits = VertexMemoryTypeBits >> 1;
+    }
+
+    VkDeviceMemory VertexBufferMemory;
+
+    Result = vkAllocateMemory(Context.Device,
+                              &BufferAllocateInfo,
+                              0,
+                              &VertexBufferMemory);
+
+    Assert(Result == VK_SUCCESS, "Failed to allocate vertex buffer memory.\n");
+
+    /** Map our vertex buffer into host memory, set vertex values, then unmap
+     * memory to release it back to the graphics device. */
+
+    void *Mapped;
+    Result = vkMapMemory(Context.Device,
+                         VertexBufferMemory,
+                         0,
+                         VK_WHOLE_SIZE,
+                         0,
+                         &Mapped);
+
+    Assert(Result == VK_SUCCESS, "Failed to map vertex buffer memory.\n");
+
+    vertex *Triangle = (vertex *)Mapped;
+    Triangle[0] = { -1.0f, -1.0f, 0, 1.0f };
+    Triangle[1] = {  1.0f, -1.0f, 0, 1.0f };
+    Triangle[2] = {  0.0f,  1.0f, 0, 1.0f };
+
+    vkUnmapMemory(Context.Device, VertexBufferMemory);
+
+    Result = vkBindBufferMemory(Context.Device,
+                                Context.VertexInputBuffer,
+                                VertexBufferMemory,
+                                0);
+
+    Assert(Result == VK_SUCCESS, "Failed ot bind vertex buffer memory.\n");
 
     return Context;
 }
