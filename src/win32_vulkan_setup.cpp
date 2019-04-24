@@ -36,6 +36,7 @@ static PFN_vkCreateImage vkCreateImage;
 static PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
 static PFN_vkAllocateMemory vkAllocateMemory;
 static PFN_vkBindImageMemory vkBindImageMemory;
+static PFN_vkCreateRenderPass vkCreateRenderPass;
 
 // Vulkan surface extension functions.
 static PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
@@ -148,6 +149,9 @@ void win32_LoadVulkan()
 
         vkBindImageMemory = (PFN_vkBindImageMemory)
             GetProcAddress(Vulkan, "vkBindImageMemory");
+
+        vkCreateRenderPass = (PFN_vkCreateRenderPass)
+            GetProcAddress(Vulkan, "vkCreateRenderPass");
     }
     else
     {
@@ -867,7 +871,8 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
     VkMemoryPropertyFlags DesiredMemoryFlags =
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    for (unsigned int i = 0; i < sizeof(MemoryTypeBits); i++)
+    // NOTE[joe] 32 is the size of MemoryTypeBits, which we read 1b at a time.
+    for (unsigned int i = 0; i < 32; i++)
     {
         VkMemoryType MemoryType = Context.MemoryProperties.memoryTypes[i];
 
@@ -876,7 +881,7 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
             if ((MemoryType.propertyFlags & DesiredMemoryFlags) ==
                 DesiredMemoryFlags)
             {
-                ImageAllocateInfo.memoryTypeIndex = 1;
+                ImageAllocateInfo.memoryTypeIndex = i;
                 break;
             }
         }
@@ -900,6 +905,8 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
 
     Assert(Result == VK_SUCCESS,
            "Failed to bind image memory for depth image.\n");
+
+    /** Change the layout of our depth buffer image. */
 
     BeginInfo = {};
     BeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -974,6 +981,79 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
                                &Context.DepthImageView);
 
     Assert(Result == VK_SUCCESS, "Failed to create depth image view.\n");
+
+    /** Create attachments for render pass. */
+
+    VkAttachmentDescription PassAttachments[2] = {};
+
+    PassAttachments[0].format = ColorFormat;
+    PassAttachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    PassAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    PassAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    PassAttachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    PassAttachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    PassAttachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    PassAttachments[1].format = VK_FORMAT_D16_UNORM;
+    PassAttachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    PassAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    PassAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    PassAttachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    PassAttachments[1].initialLayout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    PassAttachments[1].finalLayout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference ColorAttachmentReference = {};
+    ColorAttachmentReference.attachment = 0;
+    ColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference DepthAttachmentReference = {};
+    DepthAttachmentReference.attachment = 1;
+    DepthAttachmentReference.layout =
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    /** Create render pass and accompanying subpass. */
+
+    VkSubpassDescription Subpass = {};
+    // TODO[joe] Does this have a sType member?
+    Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    Subpass.colorAttachmentCount = 1;
+    Subpass.pColorAttachments = &ColorAttachmentReference;
+    Subpass.pDepthStencilAttachment = &DepthAttachmentReference;
+
+    VkRenderPassCreateInfo RenderPassCreateInfo = {};
+    RenderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    RenderPassCreateInfo.attachmentCount = 2;
+    RenderPassCreateInfo.pAttachments = PassAttachments;
+    RenderPassCreateInfo.subpassCount = 1;
+    RenderPassCreateInfo.pSubpasses = &Subpass;
+
+    Result = vkCreateRenderPass(Context.Device,
+                                &RenderPassCreateInfo,
+                                0,
+                                &Context.RenderPass);
+
+    Assert(Result == VK_SUCCESS, "Failed to create render pass.\n");
+
+    /** Create framebuffers. */
+
+    VkImageView FramebufferAttachments[2];
+    FramebufferAttachments[1] = Context.DepthImageView;
+
+    VkFramebufferCreateInfo FramebufferCreateInfo = {};
+    FramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    FramebufferCreateInfo.renderPass = Context.RenderPass;
+    FramebufferCreateInfo.attachmentCount = 2;
+    FramebufferCreateInfo.pAttachments = FramebufferAttachments;
+    FramebufferCreateInfo.width = Context.Width;
+    FramebufferCreateInfo.height = Context.Height;
+    FramebufferCreateInfo.layers = 1;
+
+    VkFramebuffer Framebuffers[ImageCount];
+    Context.Framebuffers = Framebuffers;
+
+    Assert(Result == VK_SUCCESS, "Failed to create framebuffer.\n");
 
     return Context;
 }

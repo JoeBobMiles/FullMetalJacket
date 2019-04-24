@@ -23,23 +23,25 @@
 // TODO[joe] Find a place for this to live that isn't here.
 // Could put this in a generic "platform" header.
 typedef struct {
-    unsigned int   Width;
-    unsigned int   Height;
-    VkInstance     Instance;
-    VkDevice       Device;
-    VkQueue        PresentQueue;
+    unsigned int    Width;
+    unsigned int    Height;
+    VkInstance      Instance;
+    VkDevice        Device;
+    VkQueue         PresentQueue;
     VkCommandBuffer SetupCommandBuffer;
     VkCommandBuffer DrawCommandBuffer;
     VkSwapchainKHR  SwapChain;
     VkImage*        PresentImages;
     VkImage         DepthImage;
     VkImageView     DepthImageView;
+    VkRenderPass    RenderPass;
+    VkFramebuffer*  Framebuffers;
     VkDebugReportCallbackEXT         Callback;
     VkSurfaceKHR                     Surface;
     VkPhysicalDevice                 PhysicalDevice;
     VkPhysicalDeviceProperties       PhysicalDeviceProperties;
     VkPhysicalDeviceMemoryProperties MemoryProperties;
-    unsigned int               PresentQueueIndex;
+    unsigned int                     PresentQueueIndex;
 } vulkan_context;
 
 /* END struct declarations. */
