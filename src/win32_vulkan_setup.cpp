@@ -45,6 +45,7 @@ static PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
 static PFN_vkMapMemory vkMapMemory;
 static PFN_vkUnmapMemory vkUnmapMemory;
 static PFN_vkBindBufferMemory vkBindBufferMemory;
+static PFN_vkCreateShaderModule vkCreateShaderModule;
 
 // Vulkan surface extension functions.
 static PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
@@ -174,6 +175,9 @@ void win32_LoadVulkan()
 
         vkBindBufferMemory = (PFN_vkBindBufferMemory)
             GetProcAddress(Vulkan, "vkBindBufferMemory");
+
+        vkCreateShaderModule = (PFN_vkCreateShaderModule)
+            GetProcAddress(Vulkan, "vkCreateShaderModule");
     }
     else
     {
@@ -1164,7 +1168,17 @@ vulkan_context win32_InitializeVulkan(HINSTANCE Instance, HWND Window)
                                 VertexBufferMemory,
                                 0);
 
-    Assert(Result == VK_SUCCESS, "Failed ot bind vertex buffer memory.\n");
+    Assert(Result == VK_SUCCESS, "Failed to bind vertex buffer memory.\n");
+
+    /** Load shaders.
+     * TODO[joe] This should definitely be somewhere else. */
+
+    // TODO[joe] Figure out how to better get the shader path.
+    VkShaderModule VertexShader = PlatformLoadShader(Context,
+                                                     "../data/spirv/vert.spv");
+
+    VkShaderModule FragShader = PlatformLoadShader(Context,
+                                                   "../data/spirv/frag.spv");
 
     return Context;
 }

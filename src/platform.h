@@ -2,7 +2,7 @@
  * @file platform.h
  * @author Joseph Miles <josephmiles2015@gmail.com>
  * @date 2019-04-23
- * 
+ *
  * This file contains declarations for all functions that require somekind of
  * platform specific implementation, but also need to be used by the rest of
  * the program.
@@ -10,6 +10,9 @@
 
 #ifndef _PLATFORM_H_
 #define _PLATFORM_H_
+
+// TODO[joe] Create size macros for better handling memory things?
+#define PLATFORM_MAX_SHADER_SIZE 16384
 
 #ifdef DEBUG
 static void Assert(bool, const char*);
@@ -22,5 +25,8 @@ static void Assert(bool, const char*);
 #endif
 
 static void Abort(const char*);
+
+static inline
+VkShaderModule PlatformLoadShader(vulkan_context, const char*);
 
 #endif

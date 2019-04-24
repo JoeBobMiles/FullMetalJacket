@@ -16,8 +16,8 @@
 #include <vulkan/vulkan.h>
 
 // Include engine headers.
-#include "platform.h"
 #include "render.h"
+#include "platform.h"
 
 // Include Win32 specific vulkan setup.
 #include "win32_vulkan_setup.cpp"
@@ -77,6 +77,58 @@ void Abort(const char* Message)
 #endif
 
     abort();
+}
+
+/** Loads a compiled shader from the given FilePath and creates a Vulkan shader
+ * module from it. */
+static inline
+VkShaderModule PlatformLoadShader(vulkan_context Context,
+                                  const char* FilePath)
+{
+    unsigned int CodeSize;
+    char Code[PLATFORM_MAX_SHADER_SIZE];
+    HANDLE FileHandle = 0;
+
+    FileHandle = CreateFile(FilePath,
+                            GENERIC_READ,
+                            0,
+                            0,
+                            OPEN_EXISTING,
+                            FILE_ATTRIBUTE_NORMAL,
+                            0);
+
+    // TODO[joe] Report shader name.
+    // TODO[joe] Abort elsewhere?
+#if DEBUG
+    Assert(FileHandle != INVALID_HANDLE_VALUE, "Failed to open shader!");
+#else
+    if (FileHandle != INVALID_HANDLE_VALUE)
+        Abort("Failed to open shader!");
+#endif
+
+    ReadFile(FileHandle,
+             Code,
+             PLATFORM_MAX_SHADER_SIZE,
+             (LPDWORD) &CodeSize,
+             0);
+
+    CloseHandle(FileHandle);
+
+    VkShaderModuleCreateInfo ShaderCreationInfo = {};
+    ShaderCreationInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    ShaderCreationInfo.codeSize = CodeSize;
+    ShaderCreationInfo.pCode = (unsigned int *)Code;
+
+    VkShaderModule ShaderModule;
+
+    VkResult Result = vkCreateShaderModule(Context.Device,
+                                           &ShaderCreationInfo,
+                                           0,
+                                           &ShaderModule);
+
+    Assert(Result == VK_SUCCESS, "Failed to create vertex shader module.");
+
+    return ShaderModule;
 }
 
 /** Callback invoked by Windows when it needs us to do something. */
