@@ -10,6 +10,7 @@
 #ifndef _RENDER_H_
 #define _RENDER_H_
 
+// TODO[joe] Downsize this so that we're not carrying around all this bloat.
 typedef struct {
     unsigned int    Width;
     unsigned int    Height;
@@ -28,6 +29,8 @@ typedef struct {
     // Or would it be more prudent to keep a vertex buffer separately for each
     // model we have?
     VkBuffer        VertexInputBuffer;
+    VkPipeline      Pipeline;
+    VkPipelineLayout                 PipelineLayout;
     VkDebugReportCallbackEXT         Callback;
     VkSurfaceKHR                     Surface;
     VkPhysicalDevice                 PhysicalDevice;
