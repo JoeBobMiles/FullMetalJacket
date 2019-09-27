@@ -338,9 +338,11 @@ int WINAPI wWinMain(HINSTANCE Instance,     // Current application instance.
 
         if (Window)
         {
+            win32_LoadVulkan();
+
             // TODO[joe] Refactor so Context is passed as pointer.
             // Levi abhores that we pass this massive struct by value.
-            Context = win32_InitializeVulkan(Instance, Window);
+            win32_InitializeVulkanContext(&Context, Instance, Window);
 
             /** BEGIN Vulkan graphics pipeline creation. */
 
