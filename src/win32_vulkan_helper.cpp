@@ -11,66 +11,75 @@
 #include "platform.h"
 #include "render.h"
 
-// Declare handles to Vulkan functions that we will load later.
-static PFN_vkCreateInstance vkCreateInstance;
-static PFN_vkEnumerateInstanceLayerProperties vkEnumerateInstanceLayerProperties;
-static PFN_vkEnumerateInstanceExtensionProperties vkEnumerateInstanceExtensionProperties;
-static PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr;
-static PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
-static PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties;
-static PFN_vkGetPhysicalDeviceQueueFamilyProperties vkGetPhysicalDeviceQueueFamilyProperties;
-static PFN_vkCreateDevice vkCreateDevice;
-static PFN_vkGetDeviceQueue vkGetDeviceQueue;
-static PFN_vkCreateCommandPool vkCreateCommandPool;
-static PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers;
-static PFN_vkCreateFence vkCreateFence;
-static PFN_vkBeginCommandBuffer vkBeginCommandBuffer;
-static PFN_vkEndCommandBuffer vkEndCommandBuffer;
-static PFN_vkQueueSubmit vkQueueSubmit;
-static PFN_vkWaitForFences vkWaitForFences;
-static PFN_vkResetFences vkResetFences;
-static PFN_vkResetCommandBuffer vkResetCommandBuffer;
-static PFN_vkCreateImageView vkCreateImageView;
-static PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
-static PFN_vkCreateSemaphore vkCreateSemaphore;
-static PFN_vkDestroySemaphore vkDestroySemaphore;
-static PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
-static PFN_vkCreateImage vkCreateImage;
-static PFN_vkGetImageMemoryRequirements vkGetImageMemoryRequirements;
-static PFN_vkAllocateMemory vkAllocateMemory;
-static PFN_vkBindImageMemory vkBindImageMemory;
-static PFN_vkCreateRenderPass vkCreateRenderPass;
-static PFN_vkCreateBuffer vkCreateBuffer;
-static PFN_vkGetBufferMemoryRequirements vkGetBufferMemoryRequirements;
-static PFN_vkMapMemory vkMapMemory;
-static PFN_vkUnmapMemory vkUnmapMemory;
-static PFN_vkBindBufferMemory vkBindBufferMemory;
-static PFN_vkCreateShaderModule vkCreateShaderModule;
-static PFN_vkCreatePipelineLayout vkCreatePipelineLayout;
-static PFN_vkCreateGraphicsPipelines vkCreateGraphicsPipelines;
-static PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass;
-static PFN_vkCmdBindPipeline vkCmdBindPipeline;
-static PFN_vkCmdBindVertexBuffers vkCmdBindVertexBuffers;
-static PFN_vkCmdDraw vkCmdDraw;
-static PFN_vkDestroyFence vkDestroyFence;
-static PFN_vkCmdEndRenderPass vkCmdEndRenderPass;
-static PFN_vkCreateFramebuffer vkCreateFramebuffer;
+#define VULKAN_FUNCTIONS \
+    _(vkCreateInstance) \
+    _(vkEnumerateInstanceLayerProperties) \
+    _(vkEnumerateInstanceExtensionProperties) \
+    _(vkGetInstanceProcAddr) \
+    _(vkEnumeratePhysicalDevices) \
+    _(vkGetPhysicalDeviceProperties) \
+    _(vkGetPhysicalDeviceQueueFamilyProperties) \
+    _(vkCreateDevice) \
+    _(vkGetDeviceQueue) \
+    _(vkCreateCommandPool) \
+    _(vkAllocateCommandBuffers) \
+    _(vkCreateFence) \
+    _(vkBeginCommandBuffer) \
+    _(vkEndCommandBuffer) \
+    _(vkQueueSubmit) \
+    _(vkWaitForFences) \
+    _(vkResetFences) \
+    _(vkResetCommandBuffer) \
+    _(vkCreateImageView) \
+    _(vkCmdPipelineBarrier) \
+    _(vkCreateSemaphore) \
+    _(vkDestroySemaphore) \
+    _(vkGetPhysicalDeviceMemoryProperties) \
+    _(vkCreateImage) \
+    _(vkGetImageMemoryRequirements) \
+    _(vkAllocateMemory) \
+    _(vkBindImageMemory) \
+    _(vkCreateRenderPass) \
+    _(vkCreateBuffer) \
+    _(vkGetBufferMemoryRequirements) \
+    _(vkMapMemory) \
+    _(vkUnmapMemory) \
+    _(vkBindBufferMemory) \
+    _(vkCreateShaderModule) \
+    _(vkCreatePipelineLayout) \
+    _(vkCreateGraphicsPipelines) \
+    _(vkCmdBeginRenderPass) \
+    _(vkCmdBindPipeline) \
+    _(vkCmdBindVertexBuffers) \
+    _(vkCmdDraw) \
+    _(vkDestroyFence) \
+    _(vkCmdEndRenderPass) \
+    _(vkCreateFramebuffer)
 
 // Vulkan surface extension functions.
-static PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
-static PFN_vkGetPhysicalDeviceSurfaceSupportKHR vkGetPhysicalDeviceSurfaceSupportKHR;
-static PFN_vkGetPhysicalDeviceSurfaceFormatsKHR vkGetPhysicalDeviceSurfaceFormatsKHR;
-static PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
-static PFN_vkGetPhysicalDeviceSurfacePresentModesKHR vkGetPhysicalDeviceSurfacePresentModesKHR;
-static PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR;
-static PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
-static PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
-static PFN_vkQueuePresentKHR vkQueuePresentKHR;
+#define KHR_EXTENSION_FUNCTIONS \
+    _(vkCreateWin32SurfaceKHR) \
+    _(vkGetPhysicalDeviceSurfaceSupportKHR) \
+    _(vkGetPhysicalDeviceSurfaceFormatsKHR) \
+    _(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
+    _(vkGetPhysicalDeviceSurfacePresentModesKHR) \
+    _(vkCreateSwapchainKHR) \
+    _(vkGetSwapchainImagesKHR) \
+    _(vkAcquireNextImageKHR) \
+    _(vkQueuePresentKHR)
 
 // Vulkan debug extension functions.
-static PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
-static PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
-static PFN_vkDebugReportMessageEXT vkDebugReportMessageEXT;
+#define DEBUG_EXTENSION_FUNCTIONS \
+    _(vkCreateDebugReportCallbackEXT) \
+    _(vkDestroyDebugReportCallbackEXT) \
+    _(vkDebugReportMessageEXT)
+
+#define _(N) static PFN_##N N;
+VULKAN_FUNCTIONS
+KHR_EXTENSION_FUNCTIONS
+DEBUG_EXTENSION_FUNCTIONS
+#undef _
+
 
 /** Loads the Vulkan DLL and retrieves the functions we need from it. */
 static

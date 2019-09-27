@@ -312,6 +312,12 @@ int WINAPI wWinMain(HINSTANCE Instance,     // Current application instance.
                     PWSTR CommandLineArgs,  // Commandline arguments.
                     int ShowCommand)        // Undocumented (unused).
 {
+#define _(N) OutputDebugStringA("Loading " #N "\n");
+VULKAN_FUNCTIONS
+KHR_EXTENSION_FUNCTIONS
+DEBUG_EXTENSION_FUNCTIONS
+#undef _
+
     LPCSTR WindowClassName = "FullMetalJacket_WindowClass";
 
     WNDCLASSEX WindowClass = {};
@@ -340,8 +346,6 @@ int WINAPI wWinMain(HINSTANCE Instance,     // Current application instance.
         {
             win32_LoadVulkan();
 
-            // TODO[joe] Refactor so Context is passed as pointer.
-            // Levi abhores that we pass this massive struct by value.
             win32_InitializeVulkanContext(&Context, Instance, Window);
 
             /** BEGIN Vulkan graphics pipeline creation. */
